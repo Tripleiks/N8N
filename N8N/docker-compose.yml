@@ -1,0 +1,136 @@
+version: '3.8'
+
+# ============================================================================
+# N8N Docker Setup mit PostgreSQL und SSL
+# ============================================================================
+# System: macOS 15.7.1 Intel
+# Docker: 28.5.1
+# Erstellt: 2025-11-01
+# 
+# Zugriff:
+#   - https://MAC-PRO-INTEL.local:5678
+#   - https://10.0.0.171:5678
+# ============================================================================
+
+services:
+  # --------------------------------------------------------------------------
+  # PostgreSQL Datenbank
+  # --------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: n8n-postgres
+    restart: unless-stopped
+    
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_NON_ROOT_USER: n8n
+      POSTGRES_NON_ROOT_PASSWORD: ${POSTGRES_PASSWORD}
+    
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./logs:/var/log/postgresql:rw
+    
+    networks:
+      - n8n-network
+    
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    
+    # Sicherheit: Keine Ports nach außen exponieren
+    # PostgreSQL ist nur über das interne Netzwerk erreichbar
+
+  # --------------------------------------------------------------------------
+  # N8N Workflow Automation
+  # --------------------------------------------------------------------------
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n-app
+    restart: unless-stopped
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    environment:
+      # Datenbank-Konfiguration
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      
+      # N8N Basis-Konfiguration
+      N8N_PROTOCOL: https
+      N8N_HOST: ${N8N_HOST}
+      N8N_PORT: 5678
+      N8N_LISTEN_ADDRESS: 0.0.0.0
+      
+      # SSL/TLS Konfiguration
+      N8N_SSL_KEY: /certs/key.pem
+      N8N_SSL_CERT: /certs/cert.pem
+      
+      # Webhook URLs (beide Zugriffsarten)
+      WEBHOOK_URL: https://${N8N_HOST}:5678/
+      
+      # Authentifizierung
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
+      
+      # Erweiterte Einstellungen
+      EXECUTIONS_DATA_SAVE_ON_ERROR: all
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
+      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: "true"
+      
+      # Timezone
+      GENERIC_TIMEZONE: ${TIMEZONE}
+      TZ: ${TIMEZONE}
+      
+      # Logging
+      N8N_LOG_LEVEL: info
+      N8N_LOG_OUTPUT: console,file
+      N8N_LOG_FILE_LOCATION: /logs/n8n.log
+    
+    ports:
+      - "5678:5678"
+    
+    volumes:
+      - ./data:/home/node/.n8n
+      - ./certs:/certs:ro
+      - ./logs:/logs:rw
+    
+    networks:
+      - n8n-network
+    
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --no-check-certificate -q --spider https://localhost:5678/healthz || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  n8n-network:
+    driver: bridge
+    name: n8n-network
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/postgres_data

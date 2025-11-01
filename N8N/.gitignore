@@ -1,0 +1,44 @@
+# ============================================================================
+# N8N Docker Project - Git Ignore Rules
+# ============================================================================
+
+# Sensible Daten - NIE committen!
+.env
+*.pem
+*.key
+*.crt
+
+# N8N Daten & Workflows (optional - je nach Anforderung)
+data/
+postgres_data/
+backups/*.sql
+backups/*.dump
+
+# Logs
+logs/
+*.log
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Temporäre Dateien
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Testdateien
+ACCESS_TEST.txt
