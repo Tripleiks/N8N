@@ -60,6 +60,38 @@ Bis dahin ist die sichere Standardvariante:
 - starkes n8n Basic Auth
 - VPN/Segmentierung + Host-Firewall
 
+## Variante 2 jetzt technisch verfügbar (OIDC/Entra)
+Für OIDC/Entra wurde eine eigene Compose-Variante bereitgestellt:
+
+- `docker-compose.v2-oidc.yml`
+- `.env.v2-oidc.example`
+
+### Start von Variante 2
+```bash
+make init-v2
+# Datei .env.v2-oidc bearbeiten
+chmod 600 .env.v2-oidc
+N8N_HOST=n8n.intern.local make certs
+make validate-v2
+make up-v2
+```
+
+### Pflichtwerte in `.env.v2-oidc`
+- `OIDC_ISSUER_URL`
+- `OIDC_CLIENT_ID`
+- `OIDC_CLIENT_SECRET`
+- `OAUTH2_PROXY_COOKIE_SECRET`
+- `OIDC_ALLOWED_EMAIL_DOMAIN`
+
+### Entra Redirect URI
+- `https://<N8N_HOST>/oauth2/callback`
+
+### Test
+```bash
+curl -kI https://n8n.intern.local
+```
+Erwartung: Redirect in den OIDC-Flow / anschließend n8n-Zugriff nach Login.
+
 ## Betrieb
 ```bash
 make status
